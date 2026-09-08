@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperTracker | Gestão e Analytics de Apostas Superbet</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="src/style.css">
+
+  <!-- Limpa configurações antigas do localStorage (garante banca zerada) -->
+  <script>
+    (function() {
+      var ver = localStorage.getItem('supertracker_version');
+      if (ver !== 'v3_clean') {
+        localStorage.removeItem('supertracker_bets_v1');
+        localStorage.removeItem('supertracker_tx_v1');
+        localStorage.removeItem('supertracker_settings_v1');
+        localStorage.setItem('supertracker_version', 'v3_clean');
+      }
+    })();
+  </script>
+
+
+  <!-- Core CDNs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body class="bg-dark text-gray-100 min-h-screen font-sans antialiased selection:bg-super-green selection:text-black">
+  <div id="app" class="flex flex-col min-h-screen">
+    <!-- Navbar Header -->
+    <header class="sticky top-0 z-40 bg-dark-card/90 backdrop-blur-md border-b border-dark-border px-4 lg:px-8 py-3.5 transition-all">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <!-- Logo & Brand -->
+        <div data-tab="dashboard" class="flex items-center gap-3 cursor-pointer hover:opacity-90 transition-opacity" title="Voltar ao Dashboard / Início">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-super-red via-super-gold to-super-green flex items-center justify-center p-0.5 shadow-glow-green">
+            <div class="w-full h-full bg-dark-card rounded-[10px] flex items-center justify-center">
+              <span class="font-extrabold text-xl tracking-tighter text-super-green">S<span class="text-super-red">B</span></span>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-1.5 font-display">
+                SUPER<span class="text-super-green">TRACKER</span>
+              </h1>
+              <span class="px-2 py-0.5 text-[10px] font-semibold bg-super-green/10 text-super-green rounded-full border border-super-green/30">PRO</span>
+            </div>
+            <p class="text-[11px] text-gray-400">Gestão Inteligente & OCR de Apostas</p>
+          </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <nav class="hidden md:flex items-center gap-1.5 bg-dark-bg/80 p-1 rounded-xl border border-dark-border/60">
+          <button data-tab="dashboard" class="nav-btn active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+          </button>
+          <button data-tab="bets" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            <i data-lucide="ticket" class="w-4 h-4"></i> Bilhetes
+            <span id="nav-bets-count" class="px-1.5 py-0.2 text-[10px] bg-dark-card rounded-md text-gray-300 font-mono">0</span>
+          </button>
+          <button data-tab="cashflow" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Extrato & Caixa
+          </button>
+          <button data-tab="analytics" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Analytics
+          </button>
+          <button data-tab="settings" class="nav-btn flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+            <i data-lucide="sliders" class="w-4 h-4"></i> Configurações
+          </button>
+        </nav>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center gap-2.5">
+          <!-- OCR Print Scanner Button (Main Highlight) -->
+          <button id="open-scanner-btn" class="btn-primary flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-super-green/20 hover:shadow-super-green/30 transition-all cursor-pointer">
+            <i data-lucide="scan-line" class="w-4 h-4"></i>
+            <span>Escanear Print</span>
+            <span class="hidden sm:inline-block text-[10px] opacity-75 font-mono bg-black/25 px-1.5 py-0.5 rounded">Ctrl+V</span>
+          </button>
+
+          <!-- Quick Manual Add -->
+          <div class="relative dropdown-container">
+            <button id="add-manual-menu-btn" class="btn-secondary p-2 rounded-xl text-gray-300 hover:text-white cursor-pointer" title="Adicionar Manualmente">
+              <i data-lucide="plus" class="w-5 h-5"></i>
+            </button>
+            <div id="add-menu-dropdown" class="hidden absolute right-0 mt-2 w-48 bg-dark-card border border-dark-border rounded-xl shadow-2xl py-1 z-50">
+              <button id="btn-add-bet-manual" class="w-full text-left px-4 py-2 text-xs font-medium text-gray-200 hover:bg-dark-hover flex items-center gap-2">
+                <i data-lucide="ticket" class="w-3.5 h-3.5 text-super-green"></i> Nova Aposta
+              </button>
+              <button id="btn-add-transaction-manual" class="w-full text-left px-4 py-2 text-xs font-medium text-gray-200 hover:bg-dark-hover flex items-center gap-2">
+                <i data-lucide="banknote" class="w-3.5 h-3.5 text-super-gold"></i> Novo Depósito/Saque
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile Tab Bar -->
+      <div class="md:hidden flex items-center justify-around pt-2.5 border-t border-dark-border/40 mt-2.5">
+        <button data-tab="dashboard" class="nav-btn active text-[11px] font-medium flex flex-col items-center gap-1 text-gray-400">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Início
+        </button>
+        <button data-tab="bets" class="nav-btn text-[11px] font-medium flex flex-col items-center gap-1 text-gray-400">
+          <i data-lucide="ticket" class="w-4 h-4"></i> Bilhetes
+        </button>
+        <button data-tab="cashflow" class="nav-btn text-[11px] font-medium flex flex-col items-center gap-1 text-gray-400">
+          <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Caixa
+        </button>
+        <button data-tab="analytics" class="nav-btn text-[11px] font-medium flex flex-col items-center gap-1 text-gray-400">
+          <i data-lucide="bar-chart-3" class="w-4 h-4"></i> Análises
+        </button>
+        <button data-tab="settings" class="nav-btn text-[11px] font-medium flex flex-col items-center gap-1 text-gray-400">
+          <i data-lucide="sliders" class="w-4 h-4"></i> Ajustes
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-8 space-y-6">
+      
+      <!-- TAB 1: DASHBOARD -->
+      <section id="tab-dashboard" class="tab-pane active space-y-6">
+        
+        <!-- Header Quick Bar & Date Filter -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl lg:text-2xl font-bold text-white font-display flex items-center gap-2">
+              Visão Geral da Banca
+            </h2>
+            <p class="text-xs text-gray-400">Resumo consolidado de apostas, rentabilidade e caixa</p>
+          </div>
+          <div class="flex items-center gap-2 bg-dark-card border border-dark-border rounded-xl p-1 text-xs">
+            <button class="filter-period-btn active px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer" data-period="all">Tudo</button>
+            <button class="filter-period-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer" data-period="month">Este Mês</button>
+            <button class="filter-period-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer" data-period="week">Esta Semana</button>
+            <button class="filter-period-btn px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer" data-period="today">Hoje</button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+          <!-- Banca Atual -->
+          <div class="kpi-card p-4 rounded-2xl bg-dark-card border border-dark-border relative overflow-hidden group">
+            <div class="flex items-center justify-between text-gray-400 mb-2">
+              <span class="text-[11px] font-medium uppercase tracking-wider">Banca Atual</span>
+              <div class="w-7 h-7 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="text-lg lg:text-xl font-extrabold text-white font-mono" id="kpi-bankroll">R$ 0,00</div>
+            <div class="text-[11px] text-gray-400 mt-1">Lucro acumulado nas apostas</div>
+            <div class="card-accent-line bg-super-green"></div>
+          </div>
+
+          <!-- Lucro Líquido (P&L) -->
+          <div class="kpi-card p-4 rounded-2xl bg-dark-card border border-dark-border relative overflow-hidden group">
+            <div class="flex items-center justify-between text-gray-400 mb-2">
+              <span class="text-[11px] font-medium uppercase tracking-wider">Lucro Líquido</span>
+              <div class="w-7 h-7 rounded-lg bg-super-green/10 flex items-center justify-center text-super-green" id="kpi-pl-icon">
+                <i data-lucide="trending-up" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="text-lg lg:text-xl font-extrabold font-mono" id="kpi-profit">R$ +0,00</div>
+            <div class="text-[11px] mt-1 flex items-center gap-1 font-mono" id="kpi-profit-pct">+0.0%</div>
+            <div class="card-accent-line bg-super-green" id="kpi-pl-line"></div>
+          </div>
+
+
+          <!-- Win Rate (Taxa de Acerto) -->
+          <div class="kpi-card p-4 rounded-2xl bg-dark-card border border-dark-border relative overflow-hidden group">
+            <div class="flex items-center justify-between text-gray-400 mb-2">
+              <span class="text-[11px] font-medium uppercase tracking-wider">Taxa de Acerto</span>
+              <div class="w-7 h-7 rounded-lg bg-super-green/10 flex items-center justify-center text-super-green">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="text-lg lg:text-xl font-extrabold text-white font-mono" id="kpi-winrate">0.0%</div>
+            <div class="text-[11px] text-gray-400 mt-1 flex items-center gap-1.5 font-mono">
+              <span class="text-super-green font-semibold" id="kpi-greens-count">0G</span>
+              <span>/</span>
+              <span class="text-super-red font-semibold" id="kpi-reds-count">0R</span>
+            </div>
+            <div class="card-accent-line bg-super-green"></div>
+          </div>
+
+          <!-- Odd Média -->
+          <div class="kpi-card p-4 rounded-2xl bg-dark-card border border-dark-border relative overflow-hidden group">
+            <div class="flex items-center justify-between text-gray-400 mb-2">
+              <span class="text-[11px] font-medium uppercase tracking-wider">Odd Média</span>
+              <div class="w-7 h-7 rounded-lg bg-super-gold/10 flex items-center justify-center text-super-gold">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="text-lg lg:text-xl font-extrabold text-white font-mono" id="kpi-avg-odd">@ 0.00</div>
+            <div class="text-[11px] text-gray-400 mt-1">
+              Stake Médio: <span id="kpi-avg-stake" class="text-gray-300 font-mono">R$ 0,00</span>
+            </div>
+            <div class="card-accent-line bg-super-gold"></div>
+          </div>
+
+          <!-- Depósitos vs Saques -->
+          <div class="kpi-card p-4 rounded-2xl bg-dark-card border border-dark-border relative overflow-hidden group">
+            <div class="flex items-center justify-between text-gray-400 mb-2">
+              <span class="text-[11px] font-medium uppercase tracking-wider">Balanço Saques</span>
+              <div class="w-7 h-7 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
+                <i data-lucide="arrow-down-up" class="w-4 h-4"></i>
+              </div>
+            </div>
+            <div class="text-lg lg:text-xl font-extrabold font-mono" id="kpi-cash-balance">R$ 0,00</div>
+            <div class="text-[11px] text-gray-400 mt-1 flex items-center justify-between">
+              <span class="text-super-green" title="Depósitos" id="kpi-total-deposits">+R$0</span>
+              <span class="text-super-red" title="Saques" id="kpi-total-withdrawals">-R$0</span>
+            </div>
+            <div class="card-accent-line bg-purple-500"></div>
+          </div>
+        </div>
+
+        <!-- Charts Section (Grid) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Main Chart: Bankroll Evolution Curve -->
+          <div class="lg:col-span-2 bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <i data-lucide="line-chart" class="w-4 h-4 text-super-green"></i> Evolução da Banca & Lucro
+                </h3>
+                <p class="text-xs text-gray-400">Curva de rendimento cumulativo por bilhete</p>
+              </div>
+              <div class="text-xs font-mono px-2.5 py-1 bg-dark-bg rounded-lg border border-dark-border text-gray-300">
+                Histórico Geral
+              </div>
+            </div>
+            <div class="h-64 w-full relative">
+              <canvas id="chart-bankroll-growth"></canvas>
+            </div>
+          </div>
+
+          <!-- Secondary Chart: Green/Red/Void Distribution -->
+          <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="pie-chart" class="w-4 h-4 text-super-gold"></i> Taxa de Acerto
+              </h3>
+              <span id="streak-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-md bg-super-green/20 text-super-green border border-super-green/30">
+                Streak: 0
+              </span>
+            </div>
+            <div class="h-48 w-full relative flex items-center justify-center">
+              <canvas id="chart-winrate-doughnut"></canvas>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-3 border-t border-dark-border/60 text-center text-xs">
+              <div class="bg-dark-bg/60 p-2 rounded-lg">
+                <span class="text-super-green font-bold block font-mono" id="stat-greens">0</span>
+                <span class="text-[10px] text-gray-400">Greens</span>
+              </div>
+              <div class="bg-dark-bg/60 p-2 rounded-lg">
+                <span class="text-super-red font-bold block font-mono" id="stat-reds">0</span>
+                <span class="text-[10px] text-gray-400">Reds</span>
+              </div>
+              <div class="bg-dark-bg/60 p-2 rounded-lg">
+                <span class="text-gray-400 font-bold block font-mono" id="stat-open">0</span>
+                <span class="text-[10px] text-gray-400">Abertas</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Second Chart Row: P&L by Day & Market Distribution -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Daily P&L Bars -->
+          <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="bar-chart-2" class="w-4 h-4 text-super-green"></i> Lucro / Prejuízo Diário (R$)
+              </h3>
+              <span class="text-xs text-gray-400">Últimos dias</span>
+            </div>
+            <div class="h-56 w-full relative">
+              <canvas id="chart-daily-pl"></canvas>
+            </div>
+          </div>
+
+          <!-- Market Distribution -->
+          <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="target" class="w-4 h-4 text-blue-400"></i> Desempenho por Mercado
+              </h3>
+              <span class="text-xs text-gray-400">Mais apostados</span>
+            </div>
+            <div class="h-56 w-full relative">
+              <canvas id="chart-market-breakdown"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Bets Stream (Superbet Style Cards Preview) -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="clock" class="w-4 h-4 text-super-gold"></i> Últimos Bilhetes Registrados
+              </h3>
+              <p class="text-xs text-gray-400">Bilhetes recentes processados pelo scanner ou adicionados</p>
+            </div>
+            <button data-tab="bets" class="btn-secondary px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              Ver Todos <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <div id="recent-bets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- TAB 2: BILHETES / APOSTAS -->
+      <section id="tab-bets" class="tab-pane hidden space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white font-display flex items-center gap-2">
+              Gestão de Bilhetes
+            </h2>
+            <p class="text-xs text-gray-400">Histórico completo de apostas importadas da Superbet</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button data-tab="dashboard" class="btn-secondary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar ao Início
+            </button>
+            <button id="btn-export-csv" class="btn-secondary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="download" class="w-4 h-4"></i> Exportar CSV/Excel
+            </button>
+            <button id="open-scanner-btn-2" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-glow-green">
+              <i data-lucide="scan-line" class="w-4 h-4"></i> Escanear Print
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-md">
+          <!-- Search Input -->
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="bets-search-input" placeholder="Buscar por time, evento ou mercado..." class="input-field pl-10 pr-4 py-2 text-xs w-full rounded-xl" />
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex flex-wrap items-center gap-1.5">
+            <button class="bet-status-filter active px-3 py-1.5 text-xs rounded-xl font-medium transition-all cursor-pointer" data-status="ALL">Todos (<span id="count-all">0</span>)</button>
+            <button class="bet-status-filter px-3 py-1.5 text-xs rounded-xl font-medium transition-all text-super-green cursor-pointer" data-status="WON">Greens (<span id="count-won">0</span>)</button>
+            <button class="bet-status-filter px-3 py-1.5 text-xs rounded-xl font-medium transition-all text-super-red cursor-pointer" data-status="LOST">Reds (<span id="count-lost">0</span>)</button>
+            <button class="bet-status-filter px-3 py-1.5 text-xs rounded-xl font-medium transition-all text-blue-400 cursor-pointer" data-status="OPEN">Abertas (<span id="count-open">0</span>)</button>
+            <button class="bet-status-filter px-3 py-1.5 text-xs rounded-xl font-medium transition-all text-yellow-400 cursor-pointer" data-status="CASHOUT">Cashout (<span id="count-cashout">0</span>)</button>
+          </div>
+        </div>
+
+        <!-- Bets List Grid (Superbet Style Cards) -->
+        <div id="all-bets-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Rendered by JS -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="bets-empty-state" class="hidden text-center py-16 bg-dark-card border border-dark-border rounded-2xl p-8">
+          <div class="w-16 h-16 rounded-2xl bg-super-green/10 text-super-green mx-auto flex items-center justify-center mb-4">
+            <i data-lucide="scan-line" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-base font-bold text-white mb-1">Nenhum bilhete encontrado</h3>
+          <p class="text-xs text-gray-400 max-w-md mx-auto mb-4">Envie o print do seu bilhete da Superbet ou adicione manualmente para começar a acompanhar suas métricas.</p>
+          <div class="flex items-center justify-center gap-2">
+            <button id="empty-state-scanner-btn" class="btn-primary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer">
+              <i data-lucide="scan-line" class="w-4 h-4"></i> Escanear Primeiro Print (Ctrl+V)
+            </button>
+            <button data-tab="dashboard" class="btn-secondary px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 cursor-pointer">
+              <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar ao Início
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: EXTRATO & CAIXA (SAQUES E DEPÓSITOS) -->
+      <section id="tab-cashflow" class="tab-pane hidden space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold text-white font-display flex items-center gap-2">
+              Extrato & Fluxo de Caixa
+            </h2>
+            <p class="text-xs text-gray-400">Controle de depósitos, saques e balanço real da Superbet</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="btn-add-tx-modal" class="btn-secondary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="plus" class="w-4 h-4"></i> Nova Transação
+            </button>
+            <button id="open-scanner-tx-btn" class="btn-primary px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+              <i data-lucide="scan-line" class="w-4 h-4"></i> Escanear Print de Extrato
+            </button>
+          </div>
+        </div>
+
+        <!-- Cashflow KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="p-4 rounded-2xl bg-dark-card border border-dark-border">
+            <span class="text-xs text-gray-400 font-medium uppercase">Total Depositado (+)</span>
+            <div class="text-xl font-extrabold text-super-green font-mono mt-1" id="tx-total-deposits">R$ 0,00</div>
+            <span class="text-[11px] text-gray-500" id="tx-count-deposits">0 depósitos aprovados</span>
+          </div>
+          <div class="p-4 rounded-2xl bg-dark-card border border-dark-border">
+            <span class="text-xs text-gray-400 font-medium uppercase">Total Sacado (-)</span>
+            <div class="text-xl font-extrabold text-super-red font-mono mt-1" id="tx-total-withdrawals">R$ 0,00</div>
+            <span class="text-[11px] text-gray-500" id="tx-count-withdrawals">0 retiradas pagas</span>
+          </div>
+          <div class="p-4 rounded-2xl bg-dark-card border border-dark-border">
+            <span class="text-xs text-gray-400 font-medium uppercase">Balanço Líquido de Caixa</span>
+            <div class="text-xl font-extrabold font-mono mt-1" id="tx-net-balance">R$ 0,00</div>
+            <span class="text-[11px] text-gray-500">Saques subtraídos de Depósitos</span>
+          </div>
+        </div>
+
+        <!-- Transactions Table Card -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl overflow-hidden shadow-xl">
+          <div class="p-4 border-b border-dark-border flex items-center justify-between">
+            <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <i data-lucide="receipt" class="w-4 h-4 text-super-gold"></i> Histórico de Transações
+            </h3>
+            <span class="text-xs text-gray-400 font-mono" id="tx-table-count">0 registros</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-dark-bg text-gray-400 uppercase tracking-wider font-semibold border-b border-dark-border">
+                <tr>
+                  <th class="py-3 px-4">Tipo</th>
+                  <th class="py-3 px-4">Data / Hora</th>
+                  <th class="py-3 px-4">Status</th>
+                  <th class="py-3 px-4 text-right">Valor</th>
+                  <th class="py-3 px-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="transactions-tbody" class="divide-y divide-dark-border">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: ANALYTICS AVANÇADO -->
+      <section id="tab-analytics" class="tab-pane hidden space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-white font-display flex items-center gap-2">
+            Relatórios & Analytics Avançados
+          </h2>
+          <p class="text-xs text-gray-400">Análise de desempenho por faixas de odds, consistência e mercados</p>
+        </div>
+
+        <!-- Detailed Breakdown Grids -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Odds Range Analysis -->
+          <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i data-lucide="layers" class="w-4 h-4 text-super-gold"></i> Desempenho por Faixa de Odds
+            </h3>
+            <div class="h-64 w-full relative">
+              <canvas id="chart-odds-ranges"></canvas>
+            </div>
+          </div>
+
+          <!-- Monthly / Daily Consistency Table -->
+          <div class="bg-dark-card border border-dark-border rounded-2xl p-5 shadow-xl">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+              <i data-lucide="calendar" class="w-4 h-4 text-blue-400"></i> Desempenho Mensal Consolidado
+            </h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-dark-bg text-gray-400 border-b border-dark-border">
+                  <tr>
+                    <th class="py-2.5 px-3">Mês</th>
+                    <th class="py-2.5 px-3">Apostas</th>
+                    <th class="py-2.5 px-3">Win Rate</th>
+                    <th class="py-2.5 px-3">ROI</th>
+                    <th class="py-2.5 px-3 text-right">Lucro/Prejuízo</th>
+                  </tr>
+                </thead>
+                <tbody id="monthly-analytics-tbody" class="divide-y divide-dark-border">
+                  <!-- Rendered by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: CONFIGURAÇÕES & BANCA -->
+      <section id="tab-settings" class="tab-pane hidden space-y-6 max-w-3xl">
+        <div>
+          <h2 class="text-xl font-bold text-white font-display flex items-center gap-2">
+            Configurações & Gestão de Banca
+          </h2>
+          <p class="text-xs text-gray-400">Personalize sua banca, unidades, backups e restauração de dados</p>
+        </div>
+
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl space-y-5">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider border-b border-dark-border pb-3 flex items-center gap-2">
+            <i data-lucide="wallet" class="w-4 h-4 text-super-green"></i> Parâmetros de Banca
+          </h3>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1.5">Banca Inicial (R$)</label>
+              <input type="number" id="setting-initial-bank" step="0.01" class="input-field w-full px-3.5 py-2 rounded-xl text-xs font-mono" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-gray-300 mb-1.5">Tamanho da Unidade Padrão (1u em R$)</label>
+              <input type="number" id="setting-unit-value" step="0.01" class="input-field w-full px-3.5 py-2 rounded-xl text-xs font-mono" />
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <button id="btn-save-settings" class="btn-primary px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer">
+              Salvar Parâmetros
+            </button>
+          </div>
+        </div>
+
+        <!-- Backup & Restauração -->
+        <div class="bg-dark-card border border-dark-border rounded-2xl p-6 shadow-xl space-y-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider border-b border-dark-border pb-3 flex items-center gap-2">
+            <i data-lucide="database" class="w-4 h-4 text-blue-400"></i> Backup & Dados
+          </h3>
+          <p class="text-xs text-gray-400">Seus dados ficam 100% salvos no navegador. Faça download de backup para transferir para outros computadores ou celular.</p>
+          <div class="flex flex-wrap items-center gap-3">
+            <button id="btn-export-backup" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer">
+              <i data-lucide="download" class="w-4 h-4"></i> Exportar Backup Completo (JSON)
+            </button>
+            <label class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 cursor-pointer">
+              <i data-lucide="upload" class="w-4 h-4"></i> Importar Backup
+              <input type="file" id="input-import-backup" accept=".json" class="hidden" />
+            </label>
+            <button id="btn-reset-demo" class="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all cursor-pointer">
+              Restaurar Dados Exemplo da Superbet
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Global Footer -->
+    <footer class="mt-auto border-t border-dark-border/40 py-4 px-4 text-center text-xs text-gray-400">
+      <p>SuperTracker — Gestão e OCR Inteligente para Superbet. Todos os dados permanecem salvos no seu dispositivo.</p>
+    </footer>
+  </div>
+
+  <!-- MODAL: OCR PRINT SCANNER (DRAG & DROP / PASTE) -->
+  <div id="scanner-modal" class="modal-backdrop hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="modal-content bg-dark-card border border-dark-border rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-dark-border flex items-center justify-between bg-dark-bg/60">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-super-green/10 text-super-green flex items-center justify-center">
+            <i data-lucide="scan-line" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Scanner de Prints da Superbet</h3>
+            <p class="text-[11px] text-gray-400">Arraste, selecione o arquivo ou dê <kbd class="px-1.5 py-0.5 bg-dark-card border border-dark-border rounded text-[10px] text-super-green">Ctrl + V</kbd></p>
+          </div>
+        </div>
+        <button id="btn-close-scanner" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-dark-hover cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-4 overflow-y-auto flex-1">
+        <!-- Drop Zone -->
+        <div id="drop-zone" class="border-2 border-dashed border-dark-border hover:border-super-green/70 rounded-2xl p-6 text-center cursor-pointer transition-all bg-dark-bg/40 group relative">
+          <input type="file" id="scanner-file-input" accept="image/*" class="hidden" />
+          <div class="flex flex-col items-center justify-center gap-2">
+            <div class="w-12 h-12 rounded-2xl bg-dark-card border border-dark-border flex items-center justify-center text-gray-400 group-hover:text-super-green group-hover:scale-110 transition-all">
+              <i data-lucide="image-up" class="w-6 h-6"></i>
+            </div>
+            <p class="text-xs font-semibold text-white">Clique para selecionar ou arraste o print aqui</p>
+            <p class="text-[11px] text-gray-400">Suporta bilhetes (Ganhos, Perdidos, Abertos) e tela de Histórico de Pagamentos</p>
+            <span class="mt-1 px-2.5 py-1 text-[10px] font-mono bg-super-green/10 text-super-green rounded-full border border-super-green/30">
+              ⚡ Dica: Você pode apenas dar Ctrl+V em qualquer lugar da tela
+            </span>
+          </div>
+        </div>
+
+        <!-- Scanning State Indicator -->
+        <div id="scanner-loading" class="hidden bg-dark-bg border border-dark-border rounded-2xl p-6 text-center space-y-3">
+          <div class="inline-block animate-spin text-super-green">
+            <i data-lucide="loader-2" class="w-8 h-8"></i>
+          </div>
+          <p class="text-xs font-semibold text-white" id="scanner-status-text">Processando imagem com OCR Superbet...</p>
+          <div class="w-full bg-dark-card h-1.5 rounded-full overflow-hidden max-w-xs mx-auto">
+            <div id="scanner-progress-bar" class="bg-super-green h-full w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <!-- Scan Results / Confirmation Form -->
+        <div id="scan-result-container" class="hidden space-y-4 pt-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-super-green flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Dados Extraídos do Print
+            </span>
+            <span id="detected-type-badge" class="px-2 py-0.5 text-[10px] font-bold rounded bg-super-green/20 text-super-green border border-super-green/30">
+              Bilhete Superbet
+            </span>
+          </div>
+
+          <!-- Preview & Edit Fields (Dynamic based on detected type) -->
+          <div id="scan-extracted-fields" class="space-y-3">
+            <!-- Form populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 border-t border-dark-border bg-dark-bg/60 flex items-center justify-between">
+        <button id="btn-cancel-scan" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">
+          Cancelar
+        </button>
+        <button id="btn-confirm-scan" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-glow-green" disabled>
+          <i data-lucide="check" class="w-4 h-4"></i> Salvar no Sistema
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL BET (ADD / EDIT) -->
+  <div id="bet-modal" class="modal-backdrop hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="modal-content bg-dark-card border border-dark-border rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in">
+      <div class="px-6 py-4 border-b border-dark-border flex items-center justify-between bg-dark-bg/60">
+        <h3 class="text-sm font-bold text-white" id="bet-modal-title">Novo Bilhete de Aposta</h3>
+        <button id="btn-close-bet-modal" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-dark-hover cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="bet-form" class="p-6 space-y-4">
+        <input type="hidden" id="bet-id" />
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Evento / Times</label>
+            <input type="text" id="bet-event" placeholder="Ex: Betis — Real Madrid" required class="input-field w-full px-3 py-2 rounded-xl text-xs" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Mercado / Seleções</label>
+            <input type="text" id="bet-market" placeholder="Ex: Total de Gols — Mais de 2.5" required class="input-field w-full px-3 py-2 rounded-xl text-xs" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Valor Apostado (R$)</label>
+            <input type="number" id="bet-stake" step="0.01" min="0.10" placeholder="25.00" required class="input-field w-full px-3 py-2 rounded-xl text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Odd Total</label>
+            <input type="number" id="bet-odd" step="0.01" min="1.01" placeholder="2.05" required class="input-field w-full px-3 py-2 rounded-xl text-xs font-mono" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Status</label>
+            <select id="bet-status" class="input-field w-full px-3 py-2 rounded-xl text-xs">
+              <option value="WON">Ganha (Green)</option>
+              <option value="LOST">Perdida (Red)</option>
+              <option value="OPEN">Aberta (Em andamento)</option>
+              <option value="CASHOUT">Cashout Feito</option>
+              <option value="VOID">Anulada / Reembolso</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Retorno / Prêmio (R$)</label>
+            <input type="number" id="bet-payout" step="0.01" placeholder="Calculado auto" class="input-field w-full px-3 py-2 rounded-xl text-xs font-mono" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-[11px] font-semibold text-gray-300 mb-1">Data / Hora</label>
+            <input type="datetime-local" id="bet-date" class="input-field w-full px-3 py-2 rounded-xl text-xs" />
+          </div>
+        </div>
+        <div class="pt-3 border-t border-dark-border flex items-center justify-end gap-2">
+          <button type="button" id="btn-cancel-bet" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">Cancelar</button>
+          <button type="submit" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">Salvar Bilhete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL TRANSACTION (DEPOSIT / WITHDRAWAL) -->
+  <div id="tx-modal" class="modal-backdrop hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+    <div class="modal-content bg-dark-card border border-dark-border rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in">
+      <div class="px-6 py-4 border-b border-dark-border flex items-center justify-between bg-dark-bg/60">
+        <h3 class="text-sm font-bold text-white">Nova Transação de Caixa</h3>
+        <button id="btn-close-tx-modal" class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-dark-hover cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="tx-form" class="p-6 space-y-4">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-300 mb-1">Tipo de Transação</label>
+          <select id="tx-type" class="input-field w-full px-3 py-2 rounded-xl text-xs">
+            <option value="DEPOSIT">Depósito (+)</option>
+            <option value="WITHDRAWAL">Retirada / Saque (-)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-300 mb-1">Valor (R$)</label>
+          <input type="number" id="tx-amount" step="0.01" min="0.01" placeholder="50.00" required class="input-field w-full px-3 py-2 rounded-xl text-xs font-mono" />
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-300 mb-1">Data / Hora</label>
+          <input type="datetime-local" id="tx-date" class="input-field w-full px-3 py-2 rounded-xl text-xs" />
+        </div>
+        <div class="pt-3 border-t border-dark-border flex items-center justify-end gap-2">
+          <button type="button" id="btn-cancel-tx" class="btn-secondary px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">Cancelar</button>
+          <button type="submit" class="btn-primary px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">Salvar Transação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Application Logic Modules -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

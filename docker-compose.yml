@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  super-tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: super-tracker
+    restart: always
+    ports:
+      - "5173:80"
